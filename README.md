@@ -59,7 +59,7 @@ LIMITATION: When using several editable tables, events won't work properly.
 Parameters:
 
         columnsEd: null,         //Index to editable columns. If null all td editables. Ex.: "1,2,3,4,5"
-        $addButton: null,        //Jquery object of "Add" button
+        addButton: null,        //Jquery object of "Add" button
         onEdit: function() {},   //Called after edition
         onBeforeDelete: function() {}, //Called before deletion
         onDelete: function() {}, //Called after deletion
