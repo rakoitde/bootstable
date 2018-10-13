@@ -52,6 +52,8 @@ If several tables need to be editable in a same Web page, it's needed to set eac
 
 LIMITATION: When using several editable tables, events won't work properly.
 
+      $('#mytable').test();
+
 Parameters:
 
         columnsEd: null,         //Index to editable columns. If null all td editables. Ex.: "1,2,3,4,5"
