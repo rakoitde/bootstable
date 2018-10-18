@@ -4,3 +4,12 @@ Version 1.1
 * 22/01/2017: Fixed the call to event OnAdd().
 * 23/01/2017: Implemented the ability to create multiples editable tables in the same page.
 * 23/01/2017: Modified the TableToCSV() function declaration. A new parameter is added to specify the table.
+
+* 18/10/2018: Start edition on Fork
+* 18/10/2018: Add Parameter NewRowOnBottom: false. Default ist new row on top of the table
+* 18/10/2018: Add Parameter ButtonColumnHeader: ''
+* 18/10/2018: Add disable and enable addButton in edit and change mode
+* 18/10/2018: Change editing from id to class
+* 18/10/2018: Prevent add new row if editing is on
+* 18/10/2018: Some style changes
+* 18/10/2018: Add data-not-editable for th and tr to prevent editing rows and columns

@@ -1,24 +1,26 @@
 /*
 Bootstable
- @description  Javascript library to make HMTL tables editable, using Bootstrap
- @version 1.1
- @autor Tito Hinostroza
+ @description  Javascript library to make HMTL tables editable, using Bootstrap 4
+ @forked from t-edson/bootstable (Tito Hinostroza)
+ 
+ 
 */
   "use strict";
   //Global variables
-  var params = null;  		//Parameters
-  var colsEdi = null;
-  var newColHtml = '<div class="btn-group pull-right ">'+
-		'<button id="bEdit" type="button" class="btn btn-sm btn-primary" onclick="rowEdit(this);">' +
+  var params = null;  		// Parameters
+  var colsEdi = [];       // columns that should be editable 
+  var newColHtml = '<div class="btn-group">'+
+		'<button type="button" class="btn btn-sm btn-outline-dark btnEdit" onclick="rowEdit(this);">' +
 		'<span class="oi oi-pencil"></span>'+
 		'</button>'+
-		'<button id="bElim" type="button" class="btn btn-sm btn-danger" onclick="rowElim(this);">' +
+		'<button type="button" class="btn btn-sm btn-outline-dark btnDelete" onclick="rowDelete(this);">' +
 		'<span class="oi oi-trash"></span>'+
 		'</button>'+
-		'<button id="bAcep" type="button" class="btn btn-sm btn-success" style="display:none;" onclick="rowAcep(this);">' + 
+		'</div><div class="btn-group">'+
+		'<button type="button" class="btn btn-sm btn-outline-dark btnAccept" style="display:none;" onclick="rowAccept(this);">' + 
 		'<span class="oi oi-check"></span>'+
 		'</button>'+
-		'<button id="bCanc" type="button" class="btn btn-sm btn-warning" style="display:none;" onclick="rowCancel(this);">' + 
+		'<button type="button" class="btn btn-sm btn-outline-dark btnCancel" style="display:none;" onclick="rowCancel(this);">' + 
 		'<span class="oi oi-x"></span>'+
 		'</button>'+
     '</div>';
@@ -26,41 +28,48 @@ Bootstable
     
   $.fn.SetEditable = function (options) {
     var defaults = {
-        columnsEd: null,         	// Index to editable columns. If null all td editable. Ex.: "1,2,3,4,5"
+        ColumnsEditable: null,      // Index to editable columns. If null all td editable. Ex.: "1,2,3,4,5"
         addButton: null,        	// Jquery object of "Add" button
-		csvButton: null,			// Jquery object of "CSV" button
+		NewRowOnBottom: false,		// Append or Prepend new Row
+		ButtonColumnHeader: '', 	// Header of the new Button Column 
         onEdit: function() {},   	// Called after edition
 		onCancel: function() {},	// Called after cancel
-		onBeforeDelete: function() {}, // Called before deletion
+		onBeforeDelete: function(){ // Called before deletion
+			return confirm("delete row?"); }, 
         onDelete: function() {}, 	// Called after deletion
         onAdd: function() {}     	// Called when added a new row
     };
     params = $.extend(defaults, options);
-    this.find('thead tr').append('<th name="buttons"></th>');  // empty header
-    this.find('tbody tr').append(colEdicHtml);
-	var $tabedi = this;   // Read reference to the current table, to resolve "this" here.
+    this.find('thead tr').append('<th name="buttons">'+params.ButtonColumnHeader+'</th>');  // Button Column Header
+    this.find("tbody tr[data-not-editable!='']").append(colEdicHtml);
+	this.find("tbody tr[data-not-editable]").append("<td></td>");
+	var $table = this;   // Read reference to the current table, to resolve "this" here.
 	
     //Process "addButton" parameter
     if (params.addButton != null) {
         // Parameter was provided
         params.addButton.click(function() {
-            rowAddNew($tabedi.attr("id"));
-        });
-    }
-	
-    //Process "addButton" parameter
-    if (params.csvButton != null) {
-        // Parameter was provided
-        params.csvButton.click(function() {
-            console.log(TableToCSV($tabedi.attr("id"), ";"));
+            rowAddNew($table);
         });
     }
 	
     //Process "columnsEd" parameter
-    if (params.columnsEd != null) {
-        // Extract felds
-        colsEdi = params.columnsEd.split(',');
-    }
+    if (params.ColumnsEditable != null) {
+        // Extract fields
+        colsEdi = params.ColumnsEditable; // params.columnsEd.split(',');
+		console.log(colsEdi);
+    } else {
+		var $cols = this.find('thead tr th');
+		var n = 0;
+		$cols.each(function() {
+			// Check th if data-not-editable is set
+			if (typeof $(this).attr('data-not-editable') == 'undefined') {
+				colsEdi.push(n.toString());;
+			}
+			n++;
+		});
+		console.log(colsEdi);
+	}
   };
 function IterarCamposEdit($cols, tarea) {
 	// repeat for the editable fields of a row
@@ -68,13 +77,14 @@ function IterarCamposEdit($cols, tarea) {
     $cols.each(function() {
         n++;
         if ($(this).attr('name')=='buttons') return;  // excludes button column
-        if (!EsEditable(n-1)) return;   // no fieds editable
+        if (!isEditable(n-1)) return;   // no fieds editable
         tarea($(this));
     });
     
-    function EsEditable(idx) {
+    function isEditable(idx) {
 		// Indicates if the last column is set to be editable
         if (colsEdi==null) {  // it was not defined
+			
             return true;  // all are editable
         } else {  // there are fields filter
             for (var i = 0; i < colsEdi.length; i++) {
@@ -84,31 +94,39 @@ function IterarCamposEdit($cols, tarea) {
         }
     }
 }
-function FijModoNormal(but) {
-    $(but).parent().find('#bAcep').hide();
-    $(but).parent().find('#bCanc').hide();
-    $(but).parent().find('#bEdit').show();
-    $(but).parent().find('#bElim').show();
-    var $row = $(but).parents('tr');  // access the row
-    $row.attr('id', '');  // remove mark
+function changeModeNormal(button) {
+    $(button).parent().parent().find('.btnAccept').hide();
+    $(button).parent().parent().find('.btnCancel').hide();
+    $(button).parent().parent().find('.btnEdit').show();
+    $(button).parent().parent().find('.btnDelete').show();
+    var $row = $(button).parents('tr');  // access the row
+    $row.removeClass('editing new');  	 // remove mark
+    // Enable addButton on normal
+    if (params.addButton != null) {
+        params.addButton.prop("disabled",false);
+    }
 }
-function FijModoEdit(but) {
-    $(but).parent().find('#bAcep').show();
-    $(but).parent().find('#bCanc').show();
-    $(but).parent().find('#bEdit').hide();
-    $(but).parent().find('#bElim').hide();
-    var $row = $(but).parents('tr');  // access the row
-    $row.attr('id', 'editing');  // indicates that it is in edition
+function changeModeEdit(button) {
+    $(button).parent().parent().find('.btnAccept').show();
+    $(button).parent().parent().find('.btnCancel').show();
+    $(button).parent().parent().find('.btnEdit').hide();
+    $(button).parent().parent().find('.btnDelete').hide();
+    var $row = $(button).parents('tr');  // access the row
+    $row.addClass('editing');  // indicates that it is in edition
+    // Disable addButton on edit
+    if (params.addButton != null) {
+        params.addButton.prop("disabled",true);
+    }
 }
 function ModoEdicion($row) {
-    if ($row.attr('id')=='editing') {
+    if ($row.hasClass('editing')) {
         return true;
     } else {
         return false;
     }
 }
-function rowAcep(but) {	// Accept changes to the edition
-    var $row = $(but).parents('tr');  // access the row
+function rowAccept(button) {	// Accept changes to the edition
+    var $row = $(button).parents('tr');  // access the row
     var $cols = $row.find('td');  // read fields
 	var $values = {};  // store values
 	
@@ -119,7 +137,7 @@ function rowAcep(but) {	// Accept changes to the edition
       var cont = $td.find('input').val(); // read input content
       $td.html(cont);  // fixes content and removes controls
     });
-    FijModoNormal(but);
+    changeModeNormal(button);
 	
 	$cols.each(function(cellIndex) {
 		if ($(this).attr('name')!='buttons') {
@@ -127,39 +145,47 @@ function rowAcep(but) {	// Accept changes to the edition
 			if (!$field) { $field = cellIndex; } // use cellIndex if data-field not exists
 			
 			$values[$field] = $(this).html();
+
 		}
 	})
 	
-	
     params.onEdit( $values ); // return json of changed data JSON.stringify(
 }
-function rowCancel(but) { // Reject changes to the edition
-    var $row = $(but).parents('tr');  // access the row
-    var $cols = $row.find('td');  // read fields
-    if (!ModoEdicion($row)) return;  // It is already in edition
-    // It is in edition. The edition must be finalized
-    IterarCamposEdit($cols, function($td) {  // iterate through the columns
-        var cont = $td.find('div').html(); // read div content
-        $td.html(cont);  // fixes content and removes controls
-    });
-    FijModoNormal(but);
-	params.onCancel($row);
+function rowCancel(button) { // Reject changes to the edition
+	
+	var $row = $(button).parents('tr');  // access the row
+	
+	if ( $row.hasClass('new') ) {
+		$row.remove(); 				     // remove row when row is new
+	} else {
+		var $cols = $row.find('td');     // read fields
+		if (!ModoEdicion($row)) return;  // It is already in edition
+		// It is in edition. The edition must be finalized
+		IterarCamposEdit($cols, function($td) {  // iterate through the columns
+			var cont = $td.find('div').html(); // read div content
+			$td.html(cont);  // fixes content and removes controls
+		});
+		
+		params.onCancel($row);
+	}
+	
+	changeModeNormal(button);
 }
-function rowEdit(but) {  // Start editing a row
-    var $row = $(but).parents('tr');  // access the row
+function rowEdit(button) {  // Start editing a row
+    var $row = $(button).parents('tr');  // access the row
     var $cols = $row.find('td');  // read fields
     if (ModoEdicion($row)) return;  // It is already in edition
     // Put in edit mode
     IterarCamposEdit($cols, function($td) {  // iterate through the columns
         var cont = $td.html(); // read content
         var div = '<div style="display: none;">' + cont + '</div>';  // save content
-        var input = '<input class="form-control input-sm"  value="' + cont + '">';
+        var input = '<input class="form-control form-control-sm"  value="' + cont + '">';
         $td.html(div + input);  // fixed content
     });
-    FijModoEdit(but);
+    changeModeEdit(button);
 }
-function rowElim(but) {  // Delete the current row
-    var $row = $(but).parents('tr');  // access the row
+function rowDelete(button) {  // Delete the current row
+    var $row = $(button).parents('tr');  // access the row
 	var $cols = $row.find('td');  // read fields
     var $return =  params.onBeforeDelete($row);
 	var $values = {};  // store values
@@ -178,14 +204,14 @@ function rowElim(but) {  // Delete the current row
 		params.onDelete($values);
 	}
 }
-function rowAddNew(tabId) {  // Add row to the indicated table.
+function rowAddNew($table) {  // Add row to the indicated table.
 
-	var $tab_en_edic = $("#" + tabId);  // Table to edit
-    var $filas = $tab_en_edic.find('tbody tr');
-    if ($filas.length==0) {
-        // There are no rows of data. You have to create them complete
-        var $row = $tab_en_edic.find('thead tr');  // header
+	// Check if no row is in edit mode
+	if ( !$('.new').length ) {
+
+        var $row = $table.find('thead tr');  // header
         var $cols = $row.find('th');  // read fields
+		
         // build html
         var htmlDat = '';
         $cols.each(function() {
@@ -193,48 +219,22 @@ function rowAddNew(tabId) {  // Add row to the indicated table.
                 // It is column of buttons
                 htmlDat = htmlDat + colEdicHtml;  // add buttons
             } else {
-                htmlDat = htmlDat + '<td></td>';
+				var datafield = $(this).data('field');
+                htmlDat = htmlDat + '<td data-field="'+datafield+'"></td>';
             }
         });
-        $tab_en_edic.find('tbody').append('<tr>'+htmlDat+'</tr>');
-    } else {
-        // There are other rows, we can clone the last row, to copy the buttons
-        var $ultFila = $tab_en_edic.find('tbody tr:first');
-        $ultFila.clone().prependTo($ultFila.parent());  
-        $ultFila = $tab_en_edic.find('tbody tr:first');
-        var $cols = $ultFila.find('td');  // read fields
-        $cols.each(function() {
-            if ($(this).attr('name')=='buttons') {
-                // It is column of buttons
-            } else {
-                $(this).html('');  // clean content
-            }
-        });
-    }
-	params.onAdd();
-}
-function TableToCSV(tabId, separator) {  // Convert table to CSV
-    var datFil = '';
-    var tmp = '';
-	var $tab_en_edic = $("#" + tabId);  // Table source
-    $tab_en_edic.find('tbody tr').each(function() {
-        // Finish the edition if it exists
-        if (ModoEdicion($(this))) {
-            $(this).find('#bAcep').click();  // accept edition
-        }
-        var $cols = $(this).find('td');  // read fields
-        datFil = '';
-        $cols.each(function() {
-            if ($(this).attr('name')=='buttons') {
-                // It is column of buttons
-            } else {
-                datFil = datFil + $(this).html() + separator;
-            }
-        });
-        if (datFil!='') {
-            datFil = datFil.substr(0, datFil.length-separator.length); 
-        }
-        tmp = tmp + datFil + '\n';
-    });
-    return tmp;
+		
+		// append or prepend new row
+		if (params.NewRowOnBottom) {
+			$table.find('tbody').append('<tr class="new">'+htmlDat+'</tr>');
+		} else {
+			$table.find('tbody').prepend('<tr class="new">'+htmlDat+'</tr>');
+		}
+		
+		// start editing
+		$('.new').find('.btnEdit').click()
+
+		params.onAdd();
+			
+	}
 }
